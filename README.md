@@ -1,15 +1,19 @@
 # About
+*本脚本是在 https://github.com/sseaky/XShell2MobaXterm 的基础上修改的。*
+
+*在升级到xshell 7后发现不能导出原脚本的文件，所以更新了一下。*
+
 MobaXterm的配置文件中，连接字串用%分割，很多意义不明，不同协议也有区别，所以只测试了写本脚本时涉及的ssh、telnet、ftp三种类型的常用参数。
 
 
 
 ## 版本
 
-MobaXterm:	v20.0 Build 4286
+MobaXterm:	v21.1 Build 4628
 
-XShell:	6 (Build 0095)
+XShell:	7 (Build 0065)
 
-Python:	3.7
+Python:	3.9
 
 OS:	Windows 10
 
@@ -17,14 +21,18 @@ OS:	Windows 10
 
 ## 使用
 
-python XShell2MobaXterm.py <XShell_Sessions_dir>
+python XShell2MobaXterm.py <XShell_Sessions_file_1> <XShell_Sessions_file_2> ...
 
+理论上后面可以接无限个文件。
 
+之所以不采用之前的文件夹读取的方式是因为会读取不必要文件，并且文件目录会混乱。
 
-## 问题
+## 描述
 
-使用MobaXterm连接锐捷交换机，软件版本为 S5700H_RGOS 11.4(1)B2P4，出现诡异现象，可以正常连上，执行命令，但只要切换了标签页，该连接就自动断开，提示
+将Xshell导出的.tsv格式文件转为MobaXterm可以导入的.mxtsessions格式文件。
 
-> Remote side unexpectedly closed network connection
+目前Xshell 7 版本可以导出三种文件，[.csv、.xts、.tsv]，其中，.xts文件为压缩包文件，里面是.xsh文件，.csv顾名思义，而.tsv文件就是文本文件。
 
-测试了一下午，终于找到问题，该设备不支持SFTP，将 会话设置->高级SSH设置->SSH浏览器类型 设为 无，可正常工作。
+三者相比较.xts最复杂，信息最多，另外两个信息量相同，.csv文件最方便处理，而且我们导出需要的信息基本都有，所以选择了.csv文件作为源处理文件。
+
+导入后所有会话的密码都需要手动重新输入。

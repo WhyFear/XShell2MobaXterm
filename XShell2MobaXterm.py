@@ -1,14 +1,14 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # @Author: Seaky
-# @Date:   2021/1/19 9:51
+# @Modify: pakro
+# @Date:   2021/4/27
+# @Description: 将Xshell导出的.tsv格式文件转为MobaXterm可以导入的.mxtsessions格式文件。
+# 目前Xshell 7 版本可以导出三种文件，[.csv、.xts、.tsv]，其中，.xts文件为压缩包文件，里面是.xsh文件，.csv顾名思义，而.tsv文件就是文本文件。
+# 三者相比较.xts最复杂，信息最多，另外两个信息量相同，.csv文件最方便处理，而且我们导出需要的信息基本都有，所以选择了.csv文件作为源处理文件。
 
-from configparser import RawConfigParser
-from pathlib import Path
-from copy import deepcopy
+import csv
 import sys
-
-import os
+from copy import deepcopy
 
 PATTERN1 = '{name}=#{icon}#{protocol}%{host}%{port}%{user}'
 PATTERN2 = '#MobaFont%10%0%0%0%15%236,236,236%30,30,30%180,180,192%0%-1%0%%xterm%-1%-1%_Std_Colors_0_%80%24%0%1%-1%<none>%%0#0#{description} #-1'
@@ -36,44 +36,51 @@ CLASS = {
 }
 
 
-def convert(source_dir, output):
-    open(output, 'w').write('')
-    for i, objs in enumerate(os.walk(source_dir)):
-        root, dirs, files = objs
-        open(output, 'a').write('[Bookmarks{}]\n'.format('_{}'.format(i) if i else ''))
-        open(output, 'a').write('SubRep={}\n'.format(root))
-        open(output, 'a').write('ImgNum=41\n')
-        dir_path = Path(root)
-        for file_name in files:
-            if not file_name.endswith('.xsh'):
+def convert(source_dir: list, output):
+    with open(output, 'w', encoding="utf-8") as output_file:
+        # 先写入四行数据，不作为目录。所有source文件按照文件名进行装入。
+        output_file.write('[Bookmarks]\n')
+        output_file.write(f'SubRep=\n')
+        output_file.write('ImgNum=42\n')
+        output_file.write('\n')  # 换行写入下一个目录
+        i = 1
+        for file_name in source_dir:
+            if not file_name.endswith('.csv'):
+                print(f"wrong file type! {file_name},skip this file...", )
                 continue
-            file_path = dir_path / file_name
-            # ConfigParser() 不能解析含 % 的字串
-            config = RawConfigParser()
-            config.read_file(open(file_path, encoding='utf-16'))
-            protocol = config.get("CONNECTION", "Protocol")
-            if protocol in ['SSH', 'FTP', 'TELNET']:
-                d = deepcopy(CLASS[protocol]['data'])
-                d.update({
-                    'name': file_path.stem,
-                    'host': config.get("CONNECTION", "Host"),
-                    'port': config.get("CONNECTION", "Port"),
-                    'user': config.get("CONNECTION:AUTHENTICATION", "UserName"),
-                    'description': config.get("CONNECTION", "Description"),
-                })
-                open(output, 'a').write(CLASS[protocol]['pattern'].format(**d) + '\n')
-            else:
-                print('unknown {}, {}'.format(protocol, file_path))
-        open(output, 'a').write('\n')
+            output_file.write(f'[Bookmarks_{i}]\n')
+            output_file.write(f'SubRep={file_name.split(".")[0]}\n')  # 文件名作为MobaXterm的文件夹名
+            output_file.write('ImgNum=41\n')
+
+            with open(file_name, "r", encoding="utf-8") as config_file:
+                reader = csv.reader(config_file)
+                for line in reader:
+                    name = line[0]
+                    protocol = line[1]
+                    host = line[2]
+                    port = line[3]
+                    user = line[4]
+                    if protocol in ['SSH', 'FTP', 'TELNET']:
+                        d = deepcopy(CLASS[protocol]['data'])
+                        d.update({
+                            'name': name,
+                            'host': host,
+                            'port': port,
+                            'user': user,
+                        })
+                        output_file.write(CLASS[protocol]['pattern'].format(**d) + '\n')
+                        i += 1
+                    else:
+                        print('unknown {}, {}'.format(protocol, file_name))
+            output_file.write('\n')  # 换行写入下一个目录
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('Usage: python XShell2MobaXterm.py <XShell_Sessions_dir>')
-    elif not Path(sys.argv[1]).is_dir():
-        print('Error: {} is not a valid source'.format(sys.argv[1]))
+    if len(sys.argv) < 2:
+        # 多个文件多个参数，理论上支持无限个。
+        print('Usage: python XShell2MobaXterm.py <XShell_Sessions_file_1> <XShell_Sessions_file_2> ...')
     else:
-        source_dir = sys.argv[1]
+        source_files = sys.argv[1:]
         output = 'Xshell2MobaXterm.mxtsessions'
-        convert(source_dir, output)
-        print('Export {} to {} done.'.format(source_dir, output))
+        convert(source_files, output)
+        print('Export {} to {} done.'.format(source_files, output))
